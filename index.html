@@ -145,10 +145,10 @@
         sfxGallop: new Audio('sfx_gallop.mp3')
     };
 
-    assets.spriteSheet.src = 'spritesheet.png';
-    assets.bgLayer.src = 'bg.png';
-    assets.midLayer.src = 'mid.png';
-    assets.trackLayer.src = 'track.png';
+    assets.spriteSheet.src = 'spritesheet.webp';
+    assets.bgLayer.src = 'bg.webp';
+    assets.midLayer.src = 'mid.webp';
+    assets.trackLayer.src = 'track.webp';
 
     assets.lobbyBgm.loop = true;
     assets.raceBgm.loop = false;
@@ -167,11 +167,11 @@
     let isRacing = false;
 
     const horseData =[
-        { name: "모던 블루",   imgFile: "horse_blue.png",    prob: 0.40, odds: 1.1, frames:[{x:49, y:58, w:342, h:238}, {x:424, y:55, w:340, h:244}, {x:802, y:55, w:339, h:241}, {x:42, y:362, w:342, h:245}, {x:425, y:362, w:341, h:244}, {x:805, y:361, w:339, h:247}, {x:39, y:696, w:345, h:246}, {x:433, y:696, w:348, h:246}] },
-        { name: "픽셀 브라운", imgFile: "horse_brown.png",   prob: 0.25, odds: 1.5, frames:[{x:1213, y:47, w:288, h:186}, {x:1507, y:36, w:280, h:190}, {x:1795, y:43, w:281, h:190}, {x:2085, y:55, w:282, h:171}, {x:1219, y:264, w:281, h:183}, {x:1506, y:260, w:281, h:186}, {x:1795, y:261, w:284, h:171}, {x:2085, y:259, w:283, h:184}] },
-        { name: "잉크 블랙",   imgFile: "horse_black.png",   prob: 0.15, odds: 2.2, frames:[{x:1213, y:464, w:286, h:217}, {x:1499, y:464, w:287, h:217}, {x:1789, y:464, w:289, h:218}, {x:2080, y:465, w:289, h:216}] },
-        { name: "네온 팬텀",   imgFile: "horse_phantom.png", prob: 0.12, odds: 3.0, frames:[{x:837, y:727, w:330, h:233}, {x:1214, y:740, w:286, h:217}, {x:1499, y:740, w:286, h:217}, {x:1789, y:740, w:286, h:217}, {x:2080, y:740, w:286, h:217}] },
-        { name: "수묵 스케치", imgFile: "horse_sketch.png",  prob: 0.08, odds: 5.0, frames:[{x:33, y:1027, w:354, h:245}, {x:433, y:1027, w:378, h:246}, {x:839, y:1030, w:346, h:244}, {x:1230, y:1029, w:382, h:251}, {x:1649, y:1028, w:378, h:250}, {x:2046, y:1037, w:321, h:236}] }
+        { name: "모던 블루",   imgFile: "horse_blue.webp",    prob: 0.40, odds: 1.1, frames:[{x:49, y:58, w:342, h:238}, {x:424, y:55, w:340, h:244}, {x:802, y:55, w:339, h:241}, {x:42, y:362, w:342, h:245}, {x:425, y:362, w:341, h:244}, {x:805, y:361, w:339, h:247}, {x:39, y:696, w:345, h:246}, {x:433, y:696, w:348, h:246}] },
+        { name: "픽셀 브라운", imgFile: "horse_brown.webp",   prob: 0.25, odds: 1.5, frames:[{x:1213, y:47, w:288, h:186}, {x:1507, y:36, w:280, h:190}, {x:1795, y:43, w:281, h:190}, {x:2085, y:55, w:282, h:171}, {x:1219, y:264, w:281, h:183}, {x:1506, y:260, w:281, h:186}, {x:1795, y:261, w:284, h:171}, {x:2085, y:259, w:283, h:184}] },
+        { name: "잉크 블랙",   imgFile: "horse_black.webp",   prob: 0.15, odds: 2.2, frames:[{x:1213, y:464, w:286, h:217}, {x:1499, y:464, w:287, h:217}, {x:1789, y:464, w:289, h:218}, {x:2080, y:465, w:289, h:216}] },
+        { name: "네온 팬텀",   imgFile: "horse_phantom.webp", prob: 0.12, odds: 3.0, frames:[{x:837, y:727, w:330, h:233}, {x:1214, y:740, w:286, h:217}, {x:1499, y:740, w:286, h:217}, {x:1789, y:740, w:286, h:217}, {x:2080, y:740, w:286, h:217}] },
+        { name: "수묵 스케치", imgFile: "horse_sketch.webp",  prob: 0.08, odds: 5.0, frames:[{x:33, y:1027, w:354, h:245}, {x:433, y:1027, w:378, h:246}, {x:839, y:1030, w:346, h:244}, {x:1230, y:1029, w:382, h:251}, {x:1649, y:1028, w:378, h:250}, {x:2046, y:1037, w:321, h:236}] }
     ];
 
     document.getElementById('start-game-btn').onclick = () => {

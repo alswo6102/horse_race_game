@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>퓨전 서부 경마: 파멸의 굴레</title>
+
+    <!-- ✅ [변경] Amplitude Browser SDK 삽입 -->
+    <script src="https://cdn.amplitude.com/libs/analytics-browser-2.11.1-min.js.gz"></script>
+    <script>
+        // ✅ [변경] Amplitude 초기화 - API Key는 클라이언트 공개키라 노출 무방
+        window.amplitude.init('YOUR_AMPLITUDE_API_KEY', {
+            defaultTracking: false // 자동 트래킹 끄고 수동으로만 찍기
+        });
+
+        // ✅ [추가] 이벤트 래퍼 함수 - 편하게 쓰기 위해
+        function track(eventName, props) {
+            window.amplitude.track(eventName, props || {});
+        }
+    </script>
+
+    <style>
+        :root { --bg: #0a0710; --accent: #ff9e00; --danger: #ff003c; --panel: rgba(20, 15, 30, 0.95); }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 20px; background-color: var(--bg); color: #eee; font-family: 'Pretendard', sans-serif; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
+        
+        .ad-banner { position: fixed; top: 15%; width: 140px; background: #ff00ff; color: #fff; text-align: center; padding: 20px 10px; font-weight: 900; cursor: pointer; border: 4px solid #ffff00; animation: flash 0.5s infinite alternate; z-index: 50; }
+        .ad-left { left: 20px; } .ad-right { right: 20px; background: #00ffff; color: #000; }
+        @keyframes flash { from { opacity: 1; } to { opacity: 0.7; } }
+        @media (max-width: 1300px) { .ad-banner { display: none; } }
+
+        #start-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        #start-overlay button { background: var(--accent); color: #000; border: none; padding: 25px 60px; font-size: 32px; font-weight: 900; border-radius: 15px; cursor: pointer; box-shadow: 0 0 30px rgba(255, 158, 0, 0.5); }
+
+        #game-wrapper { width: 100%; max-width: 1100px; background: var(--panel); border-radius: 20px; padding: 25px; box-shadow: 0 25px 60px rgba(0,0,0,0.8); position: relative; border: 1px solid #332244; display: none; z-index: 100;}
+        .balance-box { font-size: 32px; font-weight: 900; color: var(--accent); background: #1a1a1c; padding: 12px 40px; border-radius: 60px; border: 3px solid var(--accent); margin-bottom: 20px; display: inline-block; }
+        
+        #selection-screen, #race-screen { width: 100%; display: flex; flex-direction: column; }
+        #race-screen { display: none; }
+
+        .betting-ui { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 30px; }
+        .horse-card { background: #161618; border-radius: 15px; border: 3px solid #333; cursor: pointer; text-align: center; padding: 15px; transition: 0.2s; }
+        .horse-card.selected { border-color: var(--accent); background: rgba(255, 158, 0, 0.2); transform: scale(1.05); }
+        .card-img-box { width: 100%; height: 110px; background: rgba(0,0,0,0.5); border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        .card-img-box img { width: 100%; height: 100%; object-fit: contain; }
+
+        #canvas-container { position: relative; width: 100%; height: 550px; border-radius: 15px; overflow: hidden; background: #5ab1e6; border: 4px solid #332244; margin-bottom: 20px;}
+        canvas { width: 100%; height: 100%; display: block; }
+        #countdown-layer { position: absolute; inset: 0; display: none; justify-content: center; align-items: center; font-size: 200px; font-weight: 900; color: #fff; text-shadow: 0 0 50px var(--danger); z-index: 100; pointer-events: none; }
+        #slowmo-layer { position: absolute; inset: 0; display: none; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.4); border-top: 100px solid #000; border-bottom: 100px solid #000; z-index: 90; pointer-events: none; }
+
+        .btn-large { padding: 20px; border: none; border-radius: 10px; font-size: 24px; font-weight: 900; cursor: pointer; width: 100%; transition: 0.2s; }
+        .btn-large:hover { filter: brightness(1.2); }
+        .btn-primary { background: var(--accent); color: #000; }
+        .btn-danger { background: #1a1a1c; color: var(--danger); border: 2px solid var(--danger); }
+        #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; justify-content: center; align-items: center; z-index: 999; }
+        
+        .bet-input-wrapper { display: flex; align-items: center; gap: 15px; justify-content: center; margin-bottom: 20px; }
+        .bet-input-field { width: 200px; background: #000; color: var(--accent); border: 2px solid #555; padding: 15px; border-radius: 10px; font-size: 24px; font-weight: 900; text-align: right; }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            #start-overlay h1 { font-size: 28px; }
+            #start-overlay button { padding: 20px 40px; font-size: 24px; }
+            #game-wrapper { padding: 15px; }
+            .balance-box { font-size: 24px; padding: 10px 20px; }
+            .betting-ui { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .horse-card:nth-child(5) { grid-column: span 2; }
+            .card-img-box { height: 90px; }
+            .bet-input-wrapper { flex-direction: column; gap: 10px; align-items: stretch; }
+            .bet-input-field { width: 100%; }
+            #canvas-container { height: 350px; border-width: 2px; }
+            #countdown-layer { font-size: 120px; }
+            #slowmo-layer div { font-size: 28px !important; letter-spacing: 10px !important; }
+            #slowmo-layer { border-top: 50px solid #000; border-bottom: 50px solid #000; }
+            .btn-large { font-size: 20px; padding: 15px; }
+            #modal-content { padding: 30px !important; }
+            #modal-content h1 { font-size: 24px !important; }
+            #modal-content p { font-size: 16px !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="ad-banner ad-left" onclick="handleAdClick('left')">💰가입 즉시<br>100만 포인트<br>무료 지급!</div>
+<div class="ad-banner ad-right" onclick="handleAdClick('right')">💎VIP 비밀픽<br>오늘만 무료<br>선착순 10명</div>
+
+<div id="start-overlay">
+    <h1 style="color:#fff; margin-bottom:30px; text-align:center;">퓨전 서부 경마<br><span style="color:var(--danger)">파멸의 굴레</span></h1>
+    <button id="start-game-btn">게임 시작하기</button>
+</div>
+
+<div id="game-wrapper">
+    <div class="header" style="text-align: center;">
+        <p id="system-msg" style="color: #b388ff; font-style: italic; margin-bottom: 10px; font-size: 18px;">"운명의 경주가 당신을 기다립니다. 승자를 고르세요."</p>
+        <div class="balance-box">잔액: <span id="balance-display">100,000</span>원</div>
+    </div>
+
+    <div id="selection-screen">
+        <div class="betting-ui" id="horse-list"></div>
+        <div style="background: rgba(0,0,0,0.5); padding: 30px; border-radius: 15px;">
+            <div class="bet-input-wrapper">
+                <span style="font-size: 24px; font-weight: bold;">배팅 금액:</span>
+                <input type="number" id="bet-amount-input" class="bet-input-field" value="30000" min="10000" step="10000">
+            </div>
+            <button id="enter-race-btn" class="btn-large btn-primary">경주장 입장</button>
+        </div>
+    </div>
+
+    <div id="race-screen">
+        <div id="canvas-container">
+            <canvas id="race-canvas"></canvas>
+            <div id="countdown-layer">3</div>
+            <div id="slowmo-layer"><div style="color:#ff003c; font-size:55px; font-weight:900; letter-spacing:20px; text-shadow:0 0 30px var(--danger);">PHOTO FINISH</div></div>
+        </div>
+        <div style="display: flex; gap: 15px;">
+            <button id="return-to-lobby-btn" class="btn-large btn-primary" style="display: none; flex: 2;">로비로 돌아가기</button>
+            <button id="charge-btn" class="btn-large btn-danger" style="flex: 1;">충전하기</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-overlay">
+    <div style="background:#0a0710; padding:50px; border-radius:20px; text-align:center; border:4px solid var(--danger); max-width:650px;" id="modal-content"></div>
+</div>
+
+<script>
+    // ✅ [변경] canvas 변수명: raceCanvas → raceCanvas (id도 race-canvas로 변경)
+    const raceCanvas = document.getElementById('race-canvas');
+    const raceCtx = raceCanvas.getContext('2d');
+    let audioCtx;
+
+    // ✅ [변경] assets 내부 변수명 및 파일명 전면 변경
+    const assets = {
+        spriteSheet: new Image(),   // sprite → spriteSheet
+        bgLayer: new Image(),       // bg → bgLayer
+        midLayer: new Image(),      // mid → midLayer
+        trackLayer: new Image(),    // track → trackLayer
+
+        // ✅ [변경] 파일명 변경: 한글/공백/특수문자 제거
+        lobbyBgm: new Audio('bgm_lobby.mp3'),       // YTDown.com_... → bgm_lobby.mp3
+        raceBgm: new Audio('bgm_race.m4a'),         // Video Project 3.m4a → bgm_race.m4a
+        sfxNeigh: new Audio('sfx_neigh.mp3'),       // 9914B7505CF984720F.mp3 → sfx_neigh.mp3
+        sfxGallop: new Audio('sfx_gallop.mp3')      // 990F8F3D5CF97A9118.mp3 → sfx_gallop.mp3
+    };
+
+    // ✅ [변경] 파일명 변경: spritesheet.png → spritesheet.png (이건 영문이라 유지), bg/mid/track.png 유지
+    assets.spriteSheet.src = 'spritesheet.png';
+    assets.bgLayer.src = 'bg.png';
+    assets.midLayer.src = 'mid.png';
+    assets.trackLayer.src = 'track.png';
+    
+    assets.lobbyBgm.loop = true; 
+    assets.raceBgm.loop = false;
+    assets.sfxGallop.loop = true; 
+    assets.sfxGallop.volume = 0.5;
+
+    // ✅ [변경] 게임 상태 변수명 전면 정리
+    let playerBalance = 100000;       // balance → playerBalance
+    let totalRaceCount = 0;           // raceCount → totalRaceCount
+    let bonusWinUsed = 0;             // extraWinsCount → bonusWinUsed
+    let bonusWinQuota = Math.floor(Math.random() * 2) + 1;  // extraWinsAllowed → bonusWinQuota
+
+    let selectedHorseIndex = 0;       // selectedHorseIdx → selectedHorseIndex
+    const TRACK_LENGTH = 16000;       // trackLength → TRACK_LENGTH (상수화)
+
+    // ✅ [변경] horses 배열 내 파일명 변경: 한글 → 영문 키
+    const horseData = [               // horses → horseData
+        { name: "모던 블루",   imgFile: "horse_blue.png",    prob: 0.40, odds: 1.1, frames: [{x:49, y:58, w:342, h:238}, {x:424, y:55, w:340, h:244}, {x:802, y:55, w:339, h:241}, {x:42, y:362, w:342, h:245}, {x:425, y:362, w:341, h:244}, {x:805, y:361, w:339, h:247}, {x:39, y:696, w:345, h:246}, {x:433, y:696, w:348, h:246}] },
+        { name: "픽셀 브라운", imgFile: "horse_brown.png",   prob: 0.25, odds: 1.5, frames: [{x:1213, y:47, w:288, h:186}, {x:1507, y:36, w:280, h:190}, {x:1795, y:43, w:281, h:190}, {x:2085, y:55, w:282, h:171}, {x:1219, y:264, w:281, h:183}, {x:1506, y:260, w:281, h:186}, {x:1795, y:261, w:284, h:171}, {x:2085, y:259, w:283, h:184}] },
+        { name: "잉크 블랙",   imgFile: "horse_black.png",   prob: 0.15, odds: 2.2, frames: [{x:1213, y:464, w:286, h:217}, {x:1499, y:464, w:287, h:217}, {x:1789, y:464, w:289, h:218}, {x:2080, y:465, w:289, h:216}] },
+        { name: "네온 팬텀",   imgFile: "horse_phantom.png", prob: 0.12, odds: 3.0, frames: [{x:837, y:727, w:330, h:233}, {x:1214, y:740, w:286, h:217}, {x:1499, y:740, w:286, h:217}, {x:1789, y:740, w:286, h:217}, {x:2080, y:740, w:286, h:217}] },
+        { name: "수묵 스케치", imgFile: "horse_sketch.png",  prob: 0.08, odds: 5.0, frames: [{x:33, y:1027, w:354, h:245}, {x:433, y:1027, w:378, h:246}, {x:839, y:1030, w:346, h:244}, {x:1230, y:1029, w:382, h:251}, {x:1649, y:1028, w:378, h:250}, {x:2046, y:1037, w:321, h:236}] }
+    ];
+
+    // ✅ [Amplitude] 게임 시작 이벤트
+    document.getElementById('start-game-btn').onclick = () => {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        document.getElementById('start-overlay').style.display = 'none';
+        document.getElementById('game-wrapper').style.display = 'block';
+        assets.lobbyBgm.play().catch(()=>{});
+
+        track('game_started'); // ← Amplitude: 시작 버튼 클릭
+
+        initLobby();
+    };
+
+    function initLobby() {
+        const horseListEl = document.getElementById('horse-list'); // list → horseListEl
+        horseListEl.innerHTML = '';
+
+        horseData.forEach((horse, idx) => {  // h → horse, i → idx
+            const card = document.createElement('div');
+            card.className = `horse-card ${idx === selectedHorseIndex ? 'selected' : ''}`;
+
+            card.innerHTML = `
+                <div style="font-size:18px; font-weight:bold; color:#fff; margin-bottom:5px;">${horse.name}</div>
+                <div class="card-img-box"><img src="${horse.imgFile}" alt="${horse.name}" onerror="this.style.display='none';"></div>
+                <div style="font-size:24px; font-weight:bold; color:var(--accent);">x${horse.odds}</div>
+            `;
+
+            // ✅ [Amplitude] 말 선택 이벤트
+            card.onclick = () => { 
+                document.querySelectorAll('.horse-card').forEach(c => c.classList.remove('selected')); 
+                card.classList.add('selected'); 
+                selectedHorseIndex = idx;
+
+                track('horse_selected', {   // ← Amplitude
+                    horse_name: horse.name,
+                    horse_odds: horse.odds,
+                    horse_index: idx
+                });
+            };
+            horseListEl.appendChild(card);
+        });
+    }
+
+    // --- 사운드 시스템 (변수명 통일) ---
+    function playCountdownBeep(isGoSound) {  // playBeep(isGo) → playCountdownBeep(isGoSound)
+        if(!audioCtx) return;
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator(); 
+        const gainNode = audioCtx.createGain();  // gain → gainNode
+        osc.type = 'sawtooth'; 
+        osc.frequency.setValueAtTime(isGoSound ? 1046 : 523, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); 
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        osc.connect(gainNode); gainNode.connect(audioCtx.destination); 
+        osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+    }
+
+    function playPhotoFinishThump() {  // playFinishThump → playPhotoFinishThump
+        if(!audioCtx) return;
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc1 = audioCtx.createOscillator(); 
+        const osc2 = audioCtx.createOscillator(); 
+        const gainNode = audioCtx.createGain();
+        osc1.type = 'square'; 
+        osc1.frequency.setValueAtTime(150, audioCtx.currentTime); 
+        osc1.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 1.5);
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(90, audioCtx.currentTime); 
+        osc2.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 1.5);
+        gainNode.gain.setValueAtTime(3.0, audioCtx.currentTime); 
+        gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 2.0);
+        osc1.connect(gainNode); osc2.connect(gainNode); gainNode.connect(audioCtx.destination); 
+        osc1.start(); osc2.start();
+        osc1.stop(audioCtx.currentTime + 2.0); osc2.stop(audioCtx.currentTime + 2.0);
+    }
+
+    function playVictoryChime() {  // playWinChime → playVictoryChime
+        if(!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const chimeFreqs = [523.25, 659.25, 783.99, 1046.50];  // baseFreqs → chimeFreqs
+        for (let loopIdx = 0; loopIdx < 5; loopIdx++) {
+            chimeFreqs.forEach((freq, noteIdx) => {
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                const noteTime = now + (loopIdx * 0.15) + (noteIdx * 0.04);  // time → noteTime
+                osc.type = 'square'; 
+                osc.frequency.setValueAtTime(freq * (loopIdx % 2 === 0 ? 1.0 : 1.5), noteTime); 
+                gainNode.gain.setValueAtTime(0.3, noteTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, noteTime + 0.1);
+                osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+                osc.start(noteTime); osc.stop(noteTime + 0.1);
+            });
+        }
+        const chordStartTime = now + 0.8;  // chordTime → chordStartTime
+        [523.25, 659.25, 783.99, 1046.50].forEach(freq => {
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq * 2, chordStartTime); 
+            gainNode.gain.setValueAtTime(0.0, chordStartTime);
+            gainNode.gain.linearRampToValueAtTime(0.5, chordStartTime + 0.1);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, chordStartTime + 2.5);
+            osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+            osc.start(chordStartTime); osc.stop(chordStartTime + 2.5);
+        });
+    }
+
+    function playApplauseSound() {  // playApplause → playApplauseSound
+        if(!audioCtx) return;
+        const bufferSize = audioCtx.sampleRate * 2.5; 
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);  // buffer → noiseBuffer
+        const channelData = noiseBuffer.getChannelData(0);  // data → channelData
+        for (let i = 0; i < bufferSize; i++) { channelData[i] = (Math.random() * 2 - 1) * 0.8; }
+        const noiseSource = audioCtx.createBufferSource();  // noise → noiseSource
+        noiseSource.buffer = noiseBuffer;
+        const lowpassFilter = audioCtx.createBiquadFilter();  // filter → lowpassFilter
+        lowpassFilter.type = 'lowpass';
+        lowpassFilter.frequency.value = 1000;
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(1.5, audioCtx.currentTime + 0.3); 
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 2.5); 
+        noiseSource.connect(lowpassFilter);
+        lowpassFilter.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        noiseSource.start();
+    }
+
+    function playWarningAlarm() {  // playWarningSound → playWarningAlarm
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const osc3 = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc1.type = 'sawtooth'; osc1.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(158, audioCtx.currentTime); 
+        osc3.type = 'square';   osc3.frequency.setValueAtTime(55, audioCtx.currentTime);    
+        osc1.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 2.0);
+        osc2.frequency.exponentialRampToValueAtTime(125, audioCtx.currentTime + 2.0);
+        osc3.frequency.exponentialRampToValueAtTime(45, audioCtx.currentTime + 2.0);
+        gainNode.gain.setValueAtTime(0.6, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 3.0);
+        osc1.connect(gainNode); osc2.connect(gainNode); osc3.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc1.start(); osc2.start(); osc3.start();
+        osc1.stop(audioCtx.currentTime + 3.0);
+        osc2.stop(audioCtx.currentTime + 3.0);
+        osc3.stop(audioCtx.currentTime + 3.0);
+    }
+
+    // --- 렌더링 시스템 ---
+    function drawParallaxLayer(img, camX, scrollSpeed, layerH, layerY) {  // drawLayer → drawParallaxLayer, h/y → layerH/layerY
+        if (!img.complete || img.naturalWidth === 0) return;
+        const scaleRatio = layerH / img.height; 
+        const scaledW = img.width * scaleRatio;  // sw → scaledW
+        let drawX = Math.floor(-(camX * scrollSpeed) % scaledW);  // x → drawX
+        if (drawX > 0) drawX -= scaledW;
+        while (drawX < raceCanvas.width + scaledW) { 
+            raceCtx.drawImage(img, drawX, layerY, scaledW + 1, layerH); 
+            drawX += scaledW; 
+        }
+    }
+
+    function drawRaceScene(camX, horseStates = []) {  // drawScene → drawRaceScene, states → horseStates
+        raceCtx.clearRect(0, 0, raceCanvas.width, raceCanvas.height);
+        drawParallaxLayer(assets.bgLayer,    camX, 0.4, raceCanvas.height, 0);       
+        drawParallaxLayer(assets.midLayer,   camX, 1.3, raceCanvas.height * 0.75, raceCanvas.height * 0.25); 
+        
+        const trackH = raceCanvas.height * 0.65; 
+        const trackY = raceCanvas.height - trackH;
+        drawParallaxLayer(assets.trackLayer, camX, 1.0, trackH, trackY);
+
+        const finishLineX = TRACK_LENGTH - camX;  // finishX → finishLineX
+        if (finishLineX < raceCanvas.width + 500 && finishLineX > -200) {
+            raceCtx.fillStyle = "#ffcc00"; raceCtx.fillRect(finishLineX, trackY, 20, trackH);
+            for(let j=0; j < trackH/15; j++) { 
+                raceCtx.fillStyle = j % 2 === 0 ? "white" : "black"; 
+                raceCtx.fillRect(finishLineX + 20, trackY + (j*15), 20, 15); 
+            }
+        }
+        
+        const renderOrder = [4, 3, 2, 1, 0];
+        renderOrder.forEach(idx => {
+            if (!horseStates[idx]) return;
+            const horseState = horseStates[idx];  // s → horseState
+            const frameInfo = horseState.frames[horseState.currentFrame];  // f → frameInfo
+            
+            const baseScale = 0.42;
+            const canvasScaleRatio = raceCanvas.height / 550;  // scaleRatio → canvasScaleRatio
+            const drawScale = baseScale * canvasScaleRatio;  // scale → drawScale
+
+            const drawH = frameInfo.h * drawScale;  // th → drawH
+            const drawW = frameInfo.w * drawScale;  // tw → drawW
+            
+            const baselineY = raceCanvas.height - (40 * canvasScaleRatio);  // baseLine → baselineY
+            const laneGap = 26 * canvasScaleRatio;  // yGap → laneGap
+
+            if (assets.spriteSheet.complete && assets.spriteSheet.naturalWidth > 0) {
+                raceCtx.drawImage(
+                    assets.spriteSheet, 
+                    frameInfo.x, frameInfo.y, frameInfo.w, frameInfo.h, 
+                    horseState.x - camX, baselineY - drawH - (idx * laneGap), 
+                    drawW, drawH
+                );
+            }
+        });
+    }
+
+    // --- 메인 경주 루프 ---
+    let lastFrameTimestamp = 0;  // lastTimestamp → lastFrameTimestamp
+
+    async function startRace() {  // race → startRace
+        const betAmount = parseInt(document.getElementById('bet-amount-input').value);  // bet → betAmount
+        if(isNaN(betAmount) || betAmount < 10000) return alert("최소 10,000원 이상 배팅하세요.");
+        if(betAmount > playerBalance) return handleChargeClick('insufficient_balance');
+
+        document.getElementById('selection-screen').style.display = 'none';
+        document.getElementById('race-screen').style.display = 'flex';
+        document.getElementById('return-to-lobby-btn').style.display = 'none';
+        raceCanvas.width = raceCanvas.parentElement.clientWidth; 
+        raceCanvas.height = raceCanvas.parentElement.clientHeight;
+
+        const balanceBeforeRace = playerBalance;  // ✅ [Amplitude] 베팅 전 잔액 기록
+        playerBalance -= betAmount; 
+        document.getElementById('balance-display').innerText = playerBalance.toLocaleString();
+        totalRaceCount++;
+        lastFrameTimestamp = 0; 
+
+        // ✅ [Amplitude] 경주 입장 이벤트
+        track('race_entered', {
+            bet_amount: betAmount,
+            balance_before: balanceBeforeRace,
+            selected_horse: horseData[selectedHorseIndex].name,
+            horse_odds: horseData[selectedHorseIndex].odds,
+            race_number: totalRaceCount
+        });
+
+        const horseStates = horseData.map(h => ({ ...h, x: 50, currentFrame: 0, lastFrameTime: 0, speed: 0 }));
+        drawRaceScene(0, horseStates);
+
+        assets.lobbyBgm.pause(); 
+        assets.raceBgm.currentTime = 0;
+        assets.raceBgm.play().catch(()=>{});
+
+        const countdownEl = document.getElementById('countdown-layer');  // cd → countdownEl
+        countdownEl.style.display = 'flex';
+        for(let cdStep=0; cdStep<4; cdStep++) {
+            countdownEl.innerText = ['3','2','1','GO!'][cdStep]; 
+            playCountdownBeep(cdStep === 3);
+            if(cdStep === 2) {
+                assets.sfxNeigh.currentTime = 0;
+                assets.sfxNeigh.play().catch(()=>{});
+            }
+            await new Promise(r => setTimeout(r, 850));
+        }
+        countdownEl.style.display = 'none';
+
+        // ✅ [Amplitude] 경주 시작 (카운트다운 완료)
+        track('race_started', { race_number: totalRaceCount });
+        
+        assets.sfxGallop.play().catch(()=>{});
+
+        // 승자 판독 (조작 로직)
+        const playerWillWin = (totalRaceCount === 1) || (Math.random() < 0.25 && bonusWinUsed < bonusWinQuota);
+        if(playerWillWin && totalRaceCount > 1) bonusWinUsed++;
+        const winnerIndex = playerWillWin  // intendedWinner → winnerIndex
+            ? selectedHorseIndex 
+            : [0,1,2,3,4].filter(v => v !== selectedHorseIndex)[Math.floor(Math.random()*4)];
+
+        let photoFinishPlayed = false;  // thumpPlayed → photoFinishPlayed
+        let isRaceOver = false;         // raceEnded → isRaceOver
+
+        function animateFrame(timestamp) {  // animate → animateFrame
+            if(isRaceOver) return; 
+
+            if (!lastFrameTimestamp) lastFrameTimestamp = timestamp;
+            const deltaTime = (timestamp - lastFrameTimestamp) / 16.67; 
+            lastFrameTimestamp = timestamp;
+
+            let leadPosition = Math.max(...horseStates.map(s => s.x));  // leadX → leadPosition
+            let isPhotoFinish = (TRACK_LENGTH - leadPosition < 250 && TRACK_LENGTH - leadPosition > -100);  // isSlowMo → isPhotoFinish
+
+            horseStates.forEach((horseState, idx) => {
+                let frameSpeed = 17.0 + Math.sin((timestamp / 1500) + (idx * 2.8)) * 4.0;  // speed → frameSpeed
+                if (leadPosition - horseState.x > 300) frameSpeed += 4.0; 
+
+                if (TRACK_LENGTH - leadPosition < 1800) {
+                    if (idx === winnerIndex) frameSpeed = 25.0; 
+                    else frameSpeed = (horseStates[winnerIndex].x - horseState.x > 20) ? 23.0 : 8.0; 
+                }
+
+                horseState.speed = frameSpeed; 
+                horseState.x += (isPhotoFinish ? horseState.speed * 0.08 : horseState.speed) * deltaTime; 
+                
+                const frameInterval = isPhotoFinish ? (800 / horseState.speed) * 10 : (800 / horseState.speed);  // interval → frameInterval
+                if (timestamp - horseState.lastFrameTime > frameInterval) { 
+                    horseState.currentFrame = (horseState.currentFrame + 1) % horseState.frames.length; 
+                    horseState.lastFrameTime = timestamp; 
+                }
+            });
+
+            if (isPhotoFinish && !photoFinishPlayed) { 
+                playPhotoFinishThump(); 
+                photoFinishPlayed = true; 
+                assets.sfxGallop.volume = 0.2;
+
+                // ✅ [Amplitude] 포토피니시 (박빙 구간 진입)
+                track('photo_finish_triggered', { race_number: totalRaceCount });
+            }
+            
+            let camX = horseStates[selectedHorseIndex].x - raceCanvas.width / 4;
+            raceCtx.save();
+            let zoomLevel = isPhotoFinish ? 1.7 : 1.0;  // zoom → zoomLevel
+            raceCtx.translate(raceCanvas.width/2, raceCanvas.height*0.8); 
+            raceCtx.scale(zoomLevel, zoomLevel); 
+            raceCtx.translate(-raceCanvas.width/2, -raceCanvas.height*0.8);
+            drawRaceScene(camX, horseStates); raceCtx.restore();
+
+            document.getElementById('slowmo-layer').style.display = isPhotoFinish ? 'flex' : 'none';
+
+            if(leadPosition < TRACK_LENGTH + 1000) {
+                requestAnimationFrame(animateFrame);
+                
+                if (leadPosition >= TRACK_LENGTH && !document.getElementById('return-to-lobby-btn').style.display.includes('block')) {
+                    document.getElementById('return-to-lobby-btn').style.display = 'block';
+                    
+                    setTimeout(() => {
+                        isRaceOver = true; 
+                        
+                        assets.sfxGallop.pause();
+                        assets.sfxGallop.currentTime = 0;
+                        assets.sfxGallop.volume = 0.5;
+
+                        if(winnerIndex === selectedHorseIndex) { 
+                            const payout = Math.floor(betAmount * horseData[selectedHorseIndex].odds);
+                            playerBalance += payout; 
+                            playVictoryChime(); 
+                            playApplauseSound();
+
+                            // ✅ [Amplitude] 경주 결과: 승리
+                            track('race_finished', {
+                                result: 'win',
+                                race_number: totalRaceCount,
+                                bet_amount: betAmount,
+                                payout: payout,
+                                balance_after: playerBalance,
+                                winner_horse: horseData[winnerIndex].name,
+                                was_first_race: totalRaceCount === 1
+                            });
+
+                            alert("축하합니다! 우승하셨습니다. 완벽한 안목이네요."); 
+                        } else {
+                            // ✅ [Amplitude] 경주 결과: 패배
+                            track('race_finished', {
+                                result: 'lose',
+                                race_number: totalRaceCount,
+                                bet_amount: betAmount,
+                                payout: 0,
+                                balance_after: playerBalance,
+                                winner_horse: horseData[winnerIndex].name,
+                                was_first_race: totalRaceCount === 1
+            
+                            });
+
+                            alert("패배! 정말 아깝네요. 코 차이로 지고 말았습니다.");
+                        }
+                        document.getElementById('balance-display').innerText = playerBalance.toLocaleString(); 
+                        if(playerBalance <= 0) handleChargeClick('bankrupt');
+                    }, 1000);
+                }
+            }
+        }
+        requestAnimationFrame(animateFrame);
+    }
+
+    // ✅ [변경] handleAdClick: side 파라미터 추가 + Amplitude 이벤트
+    function handleAdClick(bannerSide) {  // handleAdClick() → handleAdClick(bannerSide)
+        // ✅ [Amplitude] 광고 배너 클릭
+        track('ad_banner_clicked', { banner_side: bannerSide });
+        showWarningModal('ad_trap');
+    }
+
+    // ✅ [변경] handleChargeClick: trigger 파라미터로 통일
+    function handleChargeClick(trigger) {  // (isB, isA) → (trigger)
+        const isAdTrap = trigger === 'ad_trap';
+        const modalOverlay = document.getElementById('modal-overlay');
+        
+        if (assets.lobbyBgm) assets.lobbyBgm.pause(); 
+        if (assets.raceBgm) assets.raceBgm.pause();
+        if (assets.sfxGallop) assets.sfxGallop.pause();
+        
+        playWarningAlarm();
+
+        // ✅ [Amplitude] 충전하기 클릭 or 파산
+        track('charge_clicked', {
+            trigger: trigger,  // 'manual' | 'insufficient_balance' | 'bankrupt'
+            balance: playerBalance,
+            race_number: totalRaceCount
+        });
+
+        showWarningModal(trigger === 'ad_trap' ? 'ad_trap' : 'bankrupt');
+    }
+
+    // ✅ [변경] showWarningModal로 분리
+    function showWarningModal(modalType) {  // 기존에 handleChargeClick 안에 있던 UI 로직
+        const modalOverlay = document.getElementById('modal-overlay');
+        const isAdTrap = modalType === 'ad_trap';
+        const modalTitle = isAdTrap ? "🚨 경고: 미끼를 물었습니다" : "💀 파산: 모든 것은 설계되었습니다";
+        const modalMessage = isAdTrap 
+            ? "세상에 '가입 즉시 100만 원'이나 'VIP 100% 보장픽' 같은 무료는 존재하지 않습니다.<br><br>불법 도박 사이트의 화려한 배너는 당신의 호기심을 자극해 <b>끝없는 빚의 늪</b>으로 끌어들이기 위한 치밀한 함정입니다. 단 한 번의 클릭이 빠져나올 수 없는 파멸의 굴레를 시작하게 만듭니다." 
+            : "초반의 달콤한 승리는 당신을 안심시키고 더 큰 돈을 걸게 만들기 위해 <b>정교하게 조작된 미끼</b>였습니다.<br><br>당신이 통제할 수 있다는 착각, 다음번엔 잃은 돈을 복구할 수 있을 거라는 헛된 희망이 결국 모든 것을 잃게 만듭니다. 도박장 안에서 승자는 오직 시스템뿐입니다. 잃은 돈은 절대 돌아오지 않습니다.";
+
+        // ✅ [Amplitude] 경고 모달 노출
+        track('warning_modal_shown', {
+            modal_type: modalType,
+            balance: playerBalance,
+            race_number: totalRaceCount
+        });
+            
+        document.getElementById('modal-content').innerHTML = `
+            <h1 style="color:var(--danger); margin-bottom:20px;">${modalTitle}</h1>
+            <p style="line-height:1.6; color:#ddd; margin-bottom:40px; text-align:left; word-break:keep-all;">${modalMessage}</p>
+            <button class="btn-large btn-danger" onclick="handleHelplinkClick()" style="background:var(--danger); color:#fff; border:none; padding:20px; box-shadow: 0 0 20px rgba(255,0,60,0.5);">도박문제 헬프라인 (1336) 도움받기</button>
+        `;
+        modalOverlay.style.display = 'flex';
+    }
+
+    // ✅ [변경] 헬프라인 클릭을 별도 함수로 분리 + Amplitude 이벤트
+    function handleHelplinkClick() {
+        // ✅ [Amplitude] 헬프라인 클릭 (가장 중요한 전환 지표)
+        track('helpline_clicked', {
+            balance: playerBalance,
+            race_number: totalRaceCount
+        });
+        window.open('https://www.kcgp.or.kr/');
+    }
+
+    document.getElementById('enter-race-btn').onclick = startRace;
+
+    document.getElementById('charge-btn').onclick = () => handleChargeClick('manual');
+
+    document.getElementById('return-to-lobby-btn').onclick = () => { 
+        document.getElementById('race-screen').style.display = 'none'; 
+        document.getElementById('selection-screen').style.display = 'flex'; 
+        assets.raceBgm.pause(); assets.raceBgm.currentTime = 0;
+        assets.lobbyBgm.play().catch(()=>{}); 
+
+        // ✅ [Amplitude] 로비 복귀
+        track('returned_to_lobby', {
+            balance: playerBalance,
+            race_number: totalRaceCount
+        });
+    };
+</script>
+</body>
+</html>

@@ -655,6 +655,23 @@
             race_number: totalRaceCount
         });
     };
+    // 브라우저 창을 닫거나 다른 페이지로 이동할 때 '진짜 이탈' 추적
+    window.addEventListener('beforeunload', function (e) {
+        const modalOverlay = document.getElementById('modal-overlay');
+        const isModalVisible = modalOverlay && modalOverlay.style.display === 'flex';
+
+        let exitReason = 'abandoned_with_balance';
+        if (playerBalance <= 0) exitReason = 'bankrupt_exit';
+        if (isModalVisible) exitReason = 'exited_on_modal';
+
+        track('page_exited', {
+            final_balance: playerBalance,
+            total_races_played: totalRaceCount,
+            saw_warning_modal: isModalVisible,
+            exit_reason: exitReason,
+            is_racing_now: isRacing
+        });
+    });
 </script>
 </body>
 </html>

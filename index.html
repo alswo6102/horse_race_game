@@ -602,19 +602,41 @@
             race_number: totalRaceCount
         });
 
-        // ✅ [변경] 모달창에 X 닫기 버튼 추가 (우측 상단)
-        document.getElementById('modal-content').innerHTML = `
-            <div style="text-align: right; margin-top: -30px; margin-right: -25px; margin-bottom: 5px;">
-                <span id="close-modal-btn" style="color: #666; font-size: 40px; font-weight: bold; cursor: pointer; display: inline-block; line-height: 1; transition: 0.2s;">&times;</span>
-            </div>
-            <h1 style="color:var(--danger); margin-bottom:20px;">${modalTitle}</h1>
-            <p style="line-height:1.6; color:#ddd; margin-bottom:40px; text-align:left; word-break:keep-all;">${modalMessage}</p>
-            <button class="btn-large btn-danger" onclick="handleHelplinkClick()" style="background:var(--danger); color:#fff; border:none; padding:20px; box-shadow: 0 0 20px rgba(255,0,60,0.5);">도박문제 헬프라인 (1336) 도움받기</button>
-        `;
+        const buttonHtml = isAdTrap
+            ? `
+            <button
+                class="btn-large btn-danger"
+                onclick="handleHelplinkClick()"
+                style="background:var(--danger); color:#fff; border:none; padding:20px; box-shadow: 0 0 20px rgba(255,0,60,0.5);">
+                도박문제 헬프라인 (1336) 도움받기
+            </button>
+          `
+            : `
+            <button
+                class="btn-large btn-danger"
+                onclick="handleSurveyClick()"
+                style="background:var(--accent); color:#000; border:none; padding:20px; font-weight:900; box-shadow: 0 0 20px rgba(255,158,0,0.6);">
+                📋 설문조사 바로가기
+            </button>
+          `;
 
-        // ✅ [추가] X버튼 클릭 시 모달창 닫고 사운드 복구 이벤트
+        document.getElementById('modal-content').innerHTML = `
+        <div style="text-align: right; margin-top: -30px; margin-right: -25px; margin-bottom: 5px;">
+            <span id="close-modal-btn" style="color: #666; font-size: 40px; font-weight: bold; cursor: pointer; display: inline-block; line-height: 1; transition: 0.2s;">&times;</span>
+        </div>
+
+        <h1 style="color:var(--danger); margin-bottom:20px;">${modalTitle}</h1>
+
+        <p style="line-height:1.6; color:#ddd; margin-bottom:40px; text-align:left; word-break:keep-all;">
+            ${modalMessage}
+        </p>
+
+        ${buttonHtml}
+    `;
+
         document.getElementById('close-modal-btn').onclick = () => {
             modalOverlay.style.display = 'none';
+
             if (isRacing) {
                 assets.raceBgm.play().catch(()=>{});
                 assets.sfxGallop.play().catch(()=>{});
@@ -624,6 +646,15 @@
         };
 
         modalOverlay.style.display = 'flex';
+    }
+
+    function handleSurveyClick() {
+        track('survey_clicked', {
+            balance: playerBalance,
+            race_number: totalRaceCount
+        });
+
+        window.open('https://forms.gle/CSBWavt9PNYW6jr49');
     }
 
     function handleHelplinkClick() {

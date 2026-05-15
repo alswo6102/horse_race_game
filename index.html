@@ -658,10 +658,11 @@
     }
 
     function handleHelplinkClick() {
-        track('helpline_clicked', {
+        track('helpline_clicked_from_ad', {
             balance: playerBalance,
             race_number: totalRaceCount
         });
+
         window.open('https://www.kcgp.or.kr/');
     }
 
